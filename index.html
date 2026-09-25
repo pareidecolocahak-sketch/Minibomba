@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mines Bet - Oficial</title>
+  <style>
+    :root {
+      --bg: #0b0e14;
+      --card: #151a23;
+      --accent: #00e676;
+      --accent-hover: #00c853;
+      --danger: #ff5252;
+      --warning: #ffab00;
+      --text: #e0e6ed;
+      --border: #232a36;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+    header {
+      background-color: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo { font-size: 1.3rem; font-weight: 800; color: #fff; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
+    .logo span { color: var(--accent); }
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .balance-box { background: #1c2330; border: 1px solid var(--border); padding: 6px 14px; border-radius: 20px; font-weight: 700; color: var(--accent); }
+
+    .btn { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; transition: 0.2s; text-transform: uppercase; font-size: 0.85rem; }
+    .btn-green { background-color: var(--accent); color: #000; }
+    .btn-green:hover { background-color: var(--accent-hover); }
+    .btn-red { background-color: var(--danger); color: #fff; }
+    .btn-gold { background-color: var(--warning); color: #000; }
+    .btn-gray { background-color: #2a3447; color: var(--text); }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: #8a99ad; }
+
+    main { flex: 1; max-width: 500px; margin: 20px auto; width: 100%; padding: 0 15px; }
+
+    #loginSection { background: var(--card); padding: 30px; border-radius: 16px; border: 1px solid var(--border); text-align: center; }
+    #loginSection h2 { margin-bottom: 20px; color: #fff; }
+
+    #gameSection { display: none; background: var(--card); padding: 20px; border-radius: 16px; border: 1px solid var(--border); text-align: center; }
+    
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0; }
+    .tile {
+      aspect-ratio: 1; background: #222b3c; border: 2px solid #2d384e; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center; font-size: 1.8rem;
+      cursor: pointer; transition: 0.2s; user-select: none;
+    }
+    .tile:hover { background: #2c374d; border-color: var(--accent); }
+    .tile.revealed-diamond { background: #003820; border-color: var(--accent); }
+    .tile.revealed-bomb { background: #421212; border-color: var(--danger); }
+    .tile.disabled { pointer-events: none; opacity: 0.8; }
+
+    .controls { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+    .input-group { text-align: left; }
+    .input-group label { display: block; font-size: 0.8rem; color: #8a99ad; margin-bottom: 4px; }
+    .input-field { width: 100%; padding: 12px; background: #0b0e14; border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 1rem; }
+
+    .modal {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 999;
+    }
+    .modal.active { display: flex; }
+    .modal-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: 90%; max-width: 420px; text-align: center; }
+    .modal-card h3 { margin-bottom: 15px; color: #fff; }
+
+    .qr-container { background: #fff; padding: 10px; border-radius: 12px; display: inline-block; margin: 15px 0; }
+    .qr-container img { width: 180px; height: 180px; display: block; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">💎 MINES<span>BET</span></div>
+    <div class="header-actions">
+      <div class="balance-box" id="balanceDisplay">R$ 0,00</div>
+      <button class="btn btn-outline" onclick="openModal('adminAuthModal')">Dono</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- LOGIN -->
+    <div id="loginSection">
+      <h2>Entrar no Jogo</h2>
+      <p style="color: #8a99ad; font-size: 0.9rem; margin-bottom: 20px;">Digite seu ID para jogar:</p>
+      <div class="input-group" style="margin-bottom: 15px;">
+        <label>ID / Apelido do Jogador</label>
+        <input type="text" id="loginPlayerId" class="input-field" placeholder="Ex: jogador1">
+      </div>
+      <button class="btn btn-green" style="width: 100%; padding: 14px;" onclick="handleLogin()">ENTRAR E JOGAR</button>
+    </div>
+
+    <!-- TELA JOGO MINES -->
+    <div id="gameSection">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <span style="font-size: 0.85rem; color: #8a99ad;" id="userTag">Jogador: -</span>
+        <span style="font-size: 0.85rem; color: var(--accent);" id="gameStatus">Aguardando Aposta</span>
+      </div>
+
+      <div class="grid" id="grid"></div>
+
+      <div class="controls">
+        <div class="input-group">
+          <label>Valor da Aposta (R$)</label>
+          <input type="number" id="betAmount" class="input-field" value="1.00" min="1">
+        </div>
+        
+        <button class="btn btn-green" id="startBtn" style="padding: 14px;" onclick="startGame()">Começar Jogo</button>
+        <button class="btn btn-gold" id="collectHalfBtn" style="padding: 14px; display: none;" onclick="collectHalf()">Retirar Metade (50%)</button>
+
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button class="btn btn-gray" style="flex: 1;" onclick="openModal('depositModal')">Recarregar (PIX)</button>
+          <button class="btn btn-red" style="flex: 1;" onclick="openModal('withdrawModal')">Saque</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAL DEPÓSITO AUTOMÁTICO (PIX) -->
+  <div class="modal" id="depositModal">
+    <div class="modal-card">
+      <h3>Recarregar via PIX Automático</h3>
+      
+      <div id="pixInputArea">
+        <div class="input-group" style="margin-bottom: 15px;">
+          <label>Valor da Recarga (R$)</label>
+          <input type="number" id="depositAmount" class="input-field" placeholder="10.00" min="1">
+        </div>
+        <button class="btn btn-green" id="btnGenPix" style="width: 100%; margin-bottom: 10px;" onclick="generatePix()">Gerar PIX Automático</button>
+      </div>
+
+      <div id="pixResultArea" style="display: none;">
+        <p style="font-size: 0.85rem; color: var(--accent);">Escaneie o QR Code ou copie o código abaixo:</p>
+        <div class="qr-container">
+          <img id="pixQrImg" src="" alt="QR Code PIX">
+        </div>
+        <div class="input-group" style="margin-bottom: 10px;">
+          <input type="text" id="pixCopiaCola" class="input-field" readonly>
+        </div>
+        <button class="btn btn-gold" style="width: 100%; margin-bottom: 8px;" onclick="copyPixCode()">Copiar Código PIX</button>
+        <button class="btn btn-green" style="width: 100%; margin-bottom: 8px;" onclick="checkPixStatus()">Verificar Pagamento</button>
+      </div>
+
+      <button class="btn btn-gray" style="width: 100%; margin-top: 10px;" onclick="closeModal('depositModal')">Fechar</button>
+    </div>
+  </div>
+
+  <!-- MODAL SAQUE -->
+  <div class="modal" id="withdrawModal">
+    <div class="modal-card">
+      <h3>Solicitar Saque</h3>
+      <div class="input-group" style="margin-bottom: 10px;">
+        <label>Valor do Saque (R$)</label>
+        <input type="number" id="withdrawAmount" class="input-field" placeholder="10.00">
+      </div>
+      <div class="input-group" style="margin-bottom: 15px;">
+        <label>Chave PIX do Jogador</label>
+        <input type="text" id="withdrawPix" class="input-field" placeholder="Sua Chave PIX">
+      </div>
+      <button class="btn btn-red" style="width: 100%; margin-bottom: 8px;" onclick="requestWithdraw()">Confirmar Pedido de Saque</button>
+      <button class="btn btn-gray" style="width: 100%;" onclick="closeModal('withdrawModal')">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- MODAL SENHA DONO -->
+  <div class="modal" id="adminAuthModal">
+    <div class="modal-card">
+      <h3>Painel do Dono</h3>
+      <div class="input-group" style="margin-bottom: 15px;">
+        <label>Senha Master</label>
+        <input type="password" id="adminPass" class="input-field" placeholder="Digite a senha">
+      </div>
+      <button class="btn btn-green" style="width: 100%; margin-bottom: 8px;" onclick="loginAdmin()">Acessar</button>
+      <button class="btn btn-gray" style="width: 100%;" onclick="closeModal('adminAuthModal')">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- PAINEL ADMIN -->
+  <div class="modal" id="adminPanelModal">
+    <div class="modal-card">
+      <h3>Painel Administrativo</h3>
+      <div style="text-align: left; margin-top: 15px;">
+        <h4 style="font-size: 0.9rem; margin-bottom: 8px; color: #fff;">Adicionar Saldo Manualmente</h4>
+        <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+          <input type="number" id="adminAddVal" class="input-field" placeholder="R$ (ex: 20)">
+          <button class="btn btn-green" onclick="adminAddBalance()">Adicionar</button>
+        </div>
+      </div>
+      <button class="btn btn-gray" style="width: 100%; margin-top: 10px;" onclick="closeModal('adminPanelModal')">Fechar</button>
+    </div>
+  </div>
+
+  <script>
+    let player = { id: '', balance: 0.00 };
+    let bombPositions = [];
+    let diamondsFound = 0;
+    let currentBet = 0;
+    let currentPaymentId = null;
+
+    const MP_TOKEN = 'APP_USR-8348882093077363-030919-612662fa9e3d83b5ff2dc3768ddf91eb-475266497';
+    // Utilizando proxy para desviar do bloqueio de CORS do navegador
+    const PROXY_URL = 'https://corsproxy.io/?';
+
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    function renderGrid() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      for (let i = 0; i < 12; i++) {
+        const tile = document.createElement('div');
+        tile.className = 'tile disabled';
+        tile.innerText = '❓';
+        tile.onclick = () => revealTile(i, tile);
+        grid.appendChild(tile);
+      }
+    }
+    renderGrid();
+
+    function handleLogin() {
+      const tag = document.getElementById('loginPlayerId').value.trim();
+      if (!tag) return alert('Digite um ID!');
+
+      player.id = tag;
+      const savedBal = localStorage.getItem('mines_bal_' + tag);
+      player.balance = savedBal ? parseFloat(savedBal) : 0.00;
+
+      document.getElementById('userTag').innerText = `ID: ${player.id}`;
+      updateBalanceDisplay();
+      document.getElementById('loginSection').style.display = 'none';
+      document.getElementById('gameSection').style.display = 'block';
+    }
+
+    function updateBalanceDisplay() {
+      document.getElementById('balanceDisplay').innerText = `R$ ${player.balance.toFixed(2)}`;
+      localStorage.setItem('mines_bal_' + player.id, player.balance);
+    }
+
+    function startGame() {
+      const betAmount = parseFloat(document.getElementById('betAmount').value);
+      if (player.balance < betAmount) return alert('Saldo insuficiente! Recarregue via PIX.');
+
+      player.balance -= betAmount;
+      updateBalanceDisplay();
+
+      const positions = Array.from({ length: 12 }, (_, i) => i);
+      bombPositions = [];
+      while (bombPositions.length < 3) {
+        const randIdx = Math.floor(Math.random() * positions.length);
+        bombPositions.push(positions.splice(randIdx, 1)[0]);
+      }
+
+      diamondsFound = 0;
+      currentBet = betAmount;
+
+      document.querySelectorAll('.tile').forEach(t => {
+        t.className = 'tile';
+        t.innerText = '❓';
+      });
+      document.getElementById('startBtn').style.display = 'none';
+      document.getElementById('collectHalfBtn').style.display = 'none';
+      document.getElementById('gameStatus').innerText = 'Em andamento...';
+    }
+
+    function revealTile(index, element) {
+      if (element.classList.contains('disabled')) return;
+
+      if (bombPositions.includes(index)) {
+        element.className = 'tile revealed-bomb disabled';
+        element.innerText = '💣';
+        document.getElementById('gameStatus').innerText = '💥 BUM! Você perdeu.';
+        endGame();
+      } else {
+        element.className = 'tile revealed-diamond disabled';
+        element.innerText = '💎';
+        diamondsFound++;
+
+        if (diamondsFound >= 3) {
+          document.getElementById('collectHalfBtn').style.display = 'block';
+        }
+
+        if (diamondsFound === 4) {
+          const payout = currentBet * 2;
+          player.balance += payout;
+          updateBalanceDisplay();
+          document.getElementById('gameStatus').innerText = '🎉 VITÓRIA! Multiplicou x2!';
+          endGame();
+        }
+      }
+    }
+
+    function collectHalf() {
+      const payout = currentBet * 0.5;
+      player.balance += payout;
+      updateBalanceDisplay();
+      alert(`Você resgatou R$ ${payout.toFixed(2)}!`);
+      endGame();
+    }
+
+    function endGame() {
+      document.querySelectorAll('.tile').forEach(t => t.classList.add('disabled'));
+      document.getElementById('startBtn').style.display = 'block';
+      document.getElementById('collectHalfBtn').style.display = 'none';
+    }
+
+    // --- GERADOR DE PIX CORRIGIDO VIA PROXY ---
+    async function generatePix() {
+      const val = parseFloat(document.getElementById('depositAmount').value);
+      if (!val || val < 1) return alert('Digite um valor válido a partir de R$ 1,00');
+
+      const btnGen = document.getElementById('btnGenPix');
+      btnGen.innerText = "Gerando PIX...";
+      btnGen.disabled = true;
+
+      const targetUrl = 'https://api.mercadopago.com/v1/payments';
+      
+      try {
+        const response = await fetch(PROXY_URL + encodeURIComponent(targetUrl), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + MP_TOKEN,
+            'X-Idempotency-Key': 'pix_' + Date.now()
+          },
+          body: JSON.stringify({
+            transaction_amount: val,
+            description: `Recarga Mines - ${player.id}`,
+            payment_method_id: 'pix',
+            payer: {
+              email: 'cliente@minesbet.com',
+              first_name: player.id || 'Jogador'
+            }
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.point_of_interaction) {
+          currentPaymentId = data.id;
+          const qrBase64 = data.point_of_interaction.transaction_data.qr_code_base64;
+          const copiaCola = data.point_of_interaction.transaction_data.qr_code;
+
+          document.getElementById('pixQrImg').src = `data:image/png;base64,${qrBase64}`;
+          document.getElementById('pixCopiaCola').value = copiaCola;
+
+          document.getElementById('pixInputArea').style.display = 'none';
+          document.getElementById('pixResultArea').style.display = 'block';
+        } else {
+          alert('Erro do Mercado Pago: ' + (data.message || 'Verifique seus dados e tente novamente.'));
+        }
+      } catch (err) {
+        alert('Erro ao conectar com a rede. Tente novamente.');
+      } finally {
+        btnGen.innerText = "Gerar PIX Automático";
+        btnGen.disabled = false;
+      }
+    }
+
+    function copyPixCode() {
+      const input = document.getElementById('pixCopiaCola');
+      input.select();
+      document.execCommand('copy');
+      alert('Código PIX copiado!');
+    }
+
+    // VERIFICAR STATUS DO PAGAMENTO
+    async function checkPixStatus() {
+      if (!currentPaymentId) return;
+
+      const targetUrl = `https://api.mercadopago.com/v1/payments/${currentPaymentId}`;
+
+      try {
+        const response = await fetch(PROXY_URL + encodeURIComponent(targetUrl), {
+          headers: {
+            'Authorization': 'Bearer ' + MP_TOKEN
+          }
+        });
+        const data = await response.json();
+
+        if (data.status === 'approved') {
+          const amountCredited = data.transaction_amount;
+          player.balance += amountCredited;
+          updateBalanceDisplay();
+          alert(`🎉 Pagamento aprovado! R$ ${amountCredited.toFixed(2)} adicionados ao seu saldo.`);
+          closeModal('depositModal');
+          document.getElementById('pixInputArea').style.display = 'block';
+          document.getElementById('pixResultArea').style.display = 'none';
+        } else {
+          alert('Pagamento ainda pendente. Faça o pagamento e tente novamente em instantes!');
+        }
+      } catch (err) {
+        alert('Erro ao verificar o pagamento.');
+      }
+    }
+
+    function requestWithdraw() {
+      const amount = parseFloat(document.getElementById('withdrawAmount').value);
+      const pixKey = document.getElementById('withdrawPix').value;
+      if (!amount || !pixKey) return alert('Preencha os campos!');
+      if (player.balance < amount) return alert('Saldo insuficiente!');
+
+      player.balance -= amount;
+      updateBalanceDisplay();
+
+      alert('Pedido de saque registrado!');
+      closeModal('withdrawModal');
+    }
+
+    function loginAdmin() {
+      const pass = document.getElementById('adminPass').value;
+      if (pass !== "88778600") return alert('Senha incorreta!');
+      closeModal('adminAuthModal');
+      openModal('adminPanelModal');
+    }
+
+    function adminAddBalance() {
+      const amount = parseFloat(document.getElementById('adminAddVal').value);
+      if (!amount || amount <= 0) return alert('Valor inválido!');
+      
+      player.balance += amount;
+      updateBalanceDisplay();
+      alert(`R$ ${amount.toFixed(2)} adicionados ao saldo!`);
+      closeModal('adminPanelModal');
+    }
+  </script>
+</body>
+</html>
