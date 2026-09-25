@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mines Bet - Plataforma Oficial</title>
+  <style>
+    :root {
+      --bg: #0b0e14;
+      --card: #151a23;
+      --accent: #00e676;
+      --accent-hover: #00c853;
+      --danger: #ff5252;
+      --warning: #ffab00;
+      --text: #e0e6ed;
+      --border: #232a36;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* Topo / Navbar */
+    header {
+      background-color: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo { font-size: 1.3rem; font-weight: 800; color: #fff; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
+    .logo span { color: var(--accent); }
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .balance-box { background: #1c2330; border: 1px solid var(--border); padding: 6px 14px; border-radius: 20px; font-weight: 700; color: var(--accent); }
+
+    /* Botoes */
+    .btn { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; transition: 0.2s; text-transform: uppercase; font-size: 0.85rem; }
+    .btn-green { background-color: var(--accent); color: #000; }
+    .btn-green:hover { background-color: var(--accent-hover); }
+    .btn-red { background-color: var(--danger); color: #fff; }
+    .btn-gold { background-color: var(--warning); color: #000; }
+    .btn-gray { background-color: #2a3447; color: var(--text); }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: #8a99ad; }
+
+    /* Container Principal */
+    main { flex: 1; max-width: 500px; margin: 20px auto; width: 100%; padding: 0 15px; }
+
+    /* Tela de Login */
+    #loginSection { background: var(--card); padding: 30px; border-radius: 16px; border: 1px solid var(--border); text-align: center; }
+    #loginSection h2 { margin-bottom: 20px; color: #fff; }
+
+    /* Área do Jogo Mines */
+    #gameSection { display: none; background: var(--card); padding: 20px; border-radius: 16px; border: 1px solid var(--border); text-align: center; }
+    
+    /* Grelha 12 Quadrados */
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0; }
+    .tile {
+      aspect-ratio: 1; background: #222b3c; border: 2px solid #2d384e; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center; font-size: 1.8rem;
+      cursor: pointer; transition: 0.2s; user-select: none;
+    }
+    .tile:hover { background: #2c374d; border-color: var(--accent); }
+    .tile.revealed-diamond { background: #003820; border-color: var(--accent); }
+    .tile.revealed-bomb { background: #421212; border-color: var(--danger); }
+    .tile.disabled { pointer-events: none; opacity: 0.8; }
+
+    /* Controles do Jogo */
+    .controls { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+    .input-group { text-align: left; }
+    .input-group label { display: block; font-size: 0.8rem; color: #8a99ad; margin-bottom: 4px; }
+    .input-field { width: 100%; padding: 12px; background: #0b0e14; border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 1rem; }
+
+    /* Popups / Modais */
+    .modal {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 999;
+    }
+    .modal.active { display: flex; }
+    .modal-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: 90%; max-width: 420px; text-align: center; }
+    .modal-card h3 { margin-bottom: 15px; color: #fff; }
+
+    /* Admin Styles */
+    .admin-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; text-align: left; }
+    .stat-box { background: #0b0e14; padding: 10px; border-radius: 8px; border: 1px solid var(--border); }
+    .stat-box small { color: #8a99ad; font-size: 0.75rem; }
+    .stat-box div { font-weight: bold; font-size: 1rem; color: #fff; }
+    .withdraw-item { background: #0b0e14; border: 1px solid var(--border); padding: 10px; border-radius: 8px; margin-bottom: 8px; text-align: left; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+
+  <!-- Topo -->
+  <header>
+    <div class="logo">💎 MINES<span>BET</span></div>
+    <div class="header-actions">
+      <div class="balance-box" id="balanceDisplay">R$ 0,00</div>
+      <button class="btn btn-outline" onclick="openModal('adminAuthModal')">Dono</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- TELA DE LOGIN POR CPF -->
+    <div id="loginSection">
+      <h2>Entrar na Plataforma</h2>
+      <div class="input-group" style="margin-bottom: 15px;">
+        <label>Informe seu CPF para Jogar/Entrar</label>
+        <input type="text" id="loginCpf" class="input-field" placeholder="000.000.000-00">
+      </div>
+      <button class="btn btn-green" style="width: 100%; padding: 14px;" onclick="handleLogin()">Acessar Conta</button>
+    </div>
+
+    <!-- TELA DO JOGO MINES -->
+    <div id="gameSection">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <span style="font-size: 0.9rem; color: #8a99ad;">3 Bombas / 9 Diamantes</span>
+        <span style="font-size: 0.85rem; color: var(--accent);" id="gameStatus">Aguardando Aposta</span>
+      </div>
+
+      <!-- Tabuleiro 12 Quadrados -->
+      <div class="grid" id="grid"></div>
+
+      <!-- Ações do Jogo -->
+      <div class="controls">
+        <div class="input-group">
+          <label>Valor da Aposta (R$)</label>
+          <input type="number" id="betAmount" class="input-field" value="1.00" min="1">
+        </div>
+        
+        <button class="btn btn-green" id="startBtn" style="padding: 14px;" onclick="startGame()">Começar Jogo</button>
+        <button class="btn btn-gold" id="collectHalfBtn" style="padding: 14px; display: none;" onclick="collectHalf()">Retirar Metade (50%)</button>
+
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button class="btn btn-gray" style="flex: 1;" onclick="openModal('depositModal')">Recarregar</button>
+          <button class="btn btn-red" style="flex: 1;" onclick="openModal('withdrawModal')">Saque</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAL DEPOSITAR -->
+  <div class="modal" id="depositModal">
+    <div class="modal-card">
+      <h3>Recarregar Saldo</h3>
+      <p style="font-size: 0.85rem; color: #8a99ad; margin-bottom: 15px;">Envie o valor para a chave PIX do suporte abaixo. O saldo será creditado após aprovação.</p>
+      <div class="input-group" style="margin-bottom: 15px;">
+        <label>Chave PIX Suporte (Mercado Pago)</label>
+        <input type="text" class="input-field" value="pareidecolocarhak@gmail.com" readonly>
+      </div>
+      <button class="btn btn-gray" style="width: 100%;" onclick="closeModal('depositModal')">Fechar</button>
+    </div>
+  </div>
+
+  <!-- MODAL SAQUE -->
+  <div class="modal" id="withdrawModal">
+    <div class="modal-card">
+      <h3>Solicitar Saque</h3>
+      <div class="input-group" style="margin-bottom: 10px;">
+        <label>Valor do Saque (R$)</label>
+        <input type="number" id="withdrawAmount" class="input-field" placeholder="10.00">
+      </div>
+      <div class="input-group" style="margin-bottom: 15px;">
+        <label>Chave PIX para Recebimento</label>
+        <input type="text" id="withdrawPix" class="input-field" placeholder="CPF, Celular ou E-mail">
+      </div>
+      <button class="btn btn-red" style="width: 100%; margin-bottom: 8px;" onclick="requestWithdraw()">Confirmar Pedido de Saque</button>
+      <button class="btn btn-gray" style="width: 100%;" onclick="closeModal('withdrawModal')">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- MODAL SENHA DONO -->
+  <div class="modal" id="adminAuthModal">
+    <div class="modal-card">
+      <h3>Acesso Painel do Dono</h3>
+      <div class="input-group" style="margin-bottom: 15px;">
+        <label>Senha Master</label>
+        <input type="password" id="adminPass" class="input-field" placeholder="Digite a senha">
+      </div>
+      <button class="btn btn-green" style="width: 100%; margin-bottom: 8px;" onclick="loginAdmin()">Acessar Painel</button>
+      <button class="btn btn-gray" style="width: 100%;" onclick="closeModal('adminAuthModal')">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- PAINEL DO DONO (ADMIN) -->
+  <div class="modal" id="adminPanelModal">
+    <div class="modal-card" style="max-width: 500px;">
+      <h3>Painel Administrativo</h3>
+      
+      <!-- Métricas -->
+      <div class="admin-stats">
+        <div class="stat-box"><small>Entradas (Depósitos)</small><div id="adminDeps">R$ 0,00</div></div>
+        <div class="stat-box"><small>Saídas (Pagamentos)</small><div id="adminPays">R$ 0,00</div></div>
+        <div class="stat-box" style="grid-column: span 2;"><small>Lucro Líquido da Casa</small><div id="adminProfit" style="color: var(--accent);">R$ 0,00</div></div>
+      </div>
+
+      <!-- Adicionar Saldo Manual -->
+      <div style="border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; text-align: left;">
+        <h4 style="font-size: 0.9rem; margin-bottom: 8px; color: #fff;">Aprovar / Recarregar Saldo de Cliente</h4>
+        <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+          <input type="text" id="adminAddCpf" class="input-field" placeholder="CPF do Cliente">
+          <input type="number" id="adminAddVal" class="input-field" placeholder="R$" style="width: 90px;">
+          <button class="btn btn-green" onclick="adminAddBalance()">Adicionar</button>
+        </div>
+      </div>
+
+      <!-- Saques Pendentes -->
+      <div style="border-top: 1px solid var(--border); padding-top: 10px; text-align: left;">
+        <h4 style="font-size: 0.9rem; margin-bottom: 8px; color: #fff;">Pedidos de Saque Pendentes</h4>
+        <div id="adminWithdrawList" style="max-height: 150px; overflow-y: auto;">Carregando...</div>
+      </div>
+
+      <button class="btn btn-gray" style="width: 100%; margin-top: 15px;" onclick="closeModal('adminPanelModal')">Fechar Painel</button>
+    </div>
+  </div>
+
+  <script>
+    let currentPlayer = null;
+    let currentGameId = null;
+    let adminPassword = "";
+
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    // Renderizar Tabuleiro Inicial (12 casas fechadas)
+    function renderGrid() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      for (let i = 0; i < 12; i++) {
+        const tile = document.createElement('div');
+        tile.className = 'tile disabled';
+        tile.innerText = '❓';
+        tile.onclick = () => revealTile(i, tile);
+        grid.appendChild(tile);
+      }
+    }
+    renderGrid();
+
+    // 1. LOGIN POR CPF
+    async function handleLogin() {
+      const cpf = document.getElementById('loginCpf').value.trim();
+      if (!cpf) return alert('Digite um CPF válido!');
+
+      const res = await callApi({ action: 'login', cpf });
+      if (res.player) {
+        currentPlayer = res.player;
+        updateBalanceDisplay(currentPlayer.balance);
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('gameSection').style.display = 'block';
+      } else {
+        alert(res.error || 'Erro ao fazer login.');
+      }
+    }
+
+    function updateBalanceDisplay(val) {
+      document.getElementById('balanceDisplay').innerText = `R$ ${Number(val).toFixed(2)}`;
+    }
+
+    // 2. INICIAR JOGO
+    async function startGame() {
+      const betAmount = document.getElementById('betAmount').value;
+      if (!currentPlayer) return alert('Faça login primeiro!');
+
+      const res = await callApi({ action: 'startGame', playerId: currentPlayer.id, betAmount });
+      if (res.error) return alert(res.error);
+
+      currentGameId = res.gameId;
+      updateBalanceDisplay(res.newBalance);
+      currentPlayer.balance = res.newBalance;
+
+      // Habilitar Tabuleiro
+      document.querySelectorAll('.tile').forEach(t => {
+        t.className = 'tile';
+        t.innerText = '❓';
+      });
+      document.getElementById('startBtn').style.display = 'none';
+      document.getElementById('collectHalfBtn').style.display = 'none';
+      document.getElementById('gameStatus').innerText = 'Em andamento...';
+    }
+
+    // 3. ABRIR CASAS
+    async function revealTile(index, element) {
+      if (!currentGameId || element.classList.contains('disabled')) return;
+
+      const res = await callApi({ action: 'revealTile', gameId: currentGameId, tileIndex: index, playerId: currentPlayer.id });
+      
+      if (res.result === 'BOOM') {
+        element.className = 'tile revealed-bomb disabled';
+        element.innerText = '💣';
+        document.getElementById('gameStatus').innerText = '💥 Você acertou uma bomba!';
+        endGame();
+      } else if (res.result === 'DIAMOND') {
+        element.className = 'tile revealed-diamond disabled';
+        element.innerText = '💎';
+        
+        if (res.canCollectHalf) {
+          document.getElementById('collectHalfBtn').style.display = 'block';
+        }
+        
+        if (res.status === 'WON_100') {
+          document.getElementById('gameStatus').innerText = '🎉 VITÓRIA! Multiplicou x2!';
+          updateBalanceDisplay(res.newBalance);
+          currentPlayer.balance = res.newBalance;
+          endGame();
+        }
+      }
+    }
+
+    // 4. RETIRAR METADE
+    async function collectHalf() {
+      const res = await callApi({ action: 'collectHalf', gameId: currentGameId, playerId: currentPlayer.id });
+      if (res.newBalance) {
+        updateBalanceDisplay(res.newBalance);
+        currentPlayer.balance = res.newBalance;
+        alert(`Você garantiu o resgate de R$ ${Number(res.payout).toFixed(2)}!`);
+        endGame();
+      }
+    }
+
+    function endGame() {
+      currentGameId = null;
+      document.querySelectorAll('.tile').forEach(t => t.classList.add('disabled'));
+      document.getElementById('startBtn').style.display = 'block';
+      document.getElementById('collectHalfBtn').style.display = 'none';
+    }
+
+    // 5. SOLICITAR SAQUE (CLIENTE)
+    async function requestWithdraw() {
+      const amount = document.getElementById('withdrawAmount').value;
+      const pixKey = document.getElementById('withdrawPix').value;
+      if (!amount || !pixKey) return alert('Preencha o valor e a chave PIX!');
+
+      const res = await callApi({ action: 'requestWithdraw', playerId: currentPlayer.id, amount, pixKey });
+      if (res.error) return alert(res.error);
+
+      updateBalanceDisplay(res.newBalance);
+      currentPlayer.balance = res.newBalance;
+      alert('Solicitação de saque enviada ao Administrador!');
+      closeModal('withdrawModal');
+    }
+
+    // 6. PAINEL ADMIN
+    async function loginAdmin() {
+      adminPassword = document.getElementById('adminPass').value;
+      const res = await callApi({ action: 'adminStats', password: adminPassword });
+      if (res.error) return alert('Senha incorreta!');
+
+      closeModal('adminAuthModal');
+      openModal('adminPanelModal');
+      renderAdminData(res);
+    }
+
+    function renderAdminData(data) {
+      document.getElementById('adminDeps').innerText = `R$ ${Number(data.totalDeposited).toFixed(2)}`;
+      document.getElementById('adminPays').innerText = `R$ ${Number(data.totalPaidOut).toFixed(2)}`;
+      document.getElementById('adminProfit').innerText = `R$ ${Number(data.houseProfit).toFixed(2)}`;
+
+      const list = document.getElementById('adminWithdrawList');
+      if (!data.pendingWithdraws || data.pendingWithdraws.length === 0) {
+        list.innerHTML = '<p style="color:#8a99ad;">Nenhum saque pendente.</p>';
+        return;
+      }
+
+      list.innerHTML = data.pendingWithdraws.map(w => `
+        <div class="withdraw-item">
+          <div><b>CPF:</b> ${w.players?.cpf || 'N/A'} | <b>PIX:</b> ${w.external_ref}</div>
+          <div><b>Valor:</b> R$ ${Number(w.amount).toFixed(2)}</div>
+          <div style="margin-top: 5px; display: flex; gap: 5px;">
+            <button class="btn btn-green" style="padding: 4px 8px; font-size: 0.75rem;" onclick="processWithdraw(${w.id}, 'APPROVE')">Aprovar</button>
+            <button class="btn btn-red" style="padding: 4px 8px; font-size: 0.75rem;" onclick="processWithdraw(${w.id}, 'REJECT_REFUND')">Recusar + Reembolsar</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function adminAddBalance() {
+      const cpf = document.getElementById('adminAddCpf').value;
+      const amount = document.getElementById('adminAddVal').value;
+      const res = await callApi({ action: 'adminAddBalance', password: adminPassword, cpf, amount });
+      if (res.error) return alert(res.error);
+      alert('Saldo creditado com sucesso!');
+      loginAdmin();
+    }
+
+    async function processWithdraw(txId, decision) {
+      const res = await callApi({ action: 'adminProcessWithdraw', password: adminPassword, txId, decision });
+      if (res.error) return alert(res.error);
+      alert('Saque processado!');
+      loginAdmin();
+    }
+
+    // Função de Comunicação com Netlify Functions
+    async function callApi(payload) {
+      try {
+        const res = await fetch('/.netlify/functions/api', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        return await res.json();
+      } catch (e) {
+        return { error: 'Falha na comunicação com o servidor.' };
+      }
+    }
+  </script>
+</body>
+</html>
