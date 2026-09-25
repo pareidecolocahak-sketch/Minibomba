@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Painel do Dono</title>
+  <style>
+    body { background: #0f172a; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .card { background: #1e293b; padding: 25px; border-radius: 12px; width: 320px; text-align: center; }
+    input, button { width: 100%; padding: 10px; margin: 8px 0; border-radius: 6px; border: none; }
+    button { background: #22c55e; color: #fff; font-weight: bold; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="card" id="loginAdmin">
+    <h2>🔑 Painel do Dono</h2>
+    <input type="password" id="passInput" placeholder="Senha Admin">
+    <button onclick="loginAdmin()">ENTRAR</button>
+  </div>
+
+  <div class="card hidden" id="dashAdmin">
+    <h2>📊 Financeiro</h2>
+    <p>Total Pix: <strong>R$ <span id="dep">0.00</span></strong></p>
+    <p>Prémios Pagos: <strong>R$ <span id="payout">0.00</span></strong></p>
+    <p style="color: #22c55e;">Lucro Casa: <strong>R$ <span id="profit">0.00</span></strong></p>
+  </div>
+
+  <script>
+    async function loginAdmin() {
+      const res = await fetch('/.netlify/functions/api', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'adminStats', password: document.getElementById('passInput').value })
+      });
+      const data = await res.json();
+      if(res.status === 401) return alert('Senha incorreta!');
+      document.getElementById('dep').innerText = data.totalDeposited.toFixed(2);
+      document.getElementById('payout').innerText = data.totalPaidOut.toFixed(2);
+      document.getElementById('profit').innerText = data.houseProfit.toFixed(2);
+      document.getElementById('loginAdmin').classList.add('hidden');
+      document.getElementById('dashAdmin').classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
