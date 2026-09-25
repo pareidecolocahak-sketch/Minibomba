@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MineBomba</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    body { background: #0f172a; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 15px; }
+    .card { background: #1e293b; padding: 20px; border-radius: 16px; width: 100%; max-width: 400px; text-align: center; }
+    h1 { color: #38bdf8; margin-bottom: 15px; }
+    input, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: none; font-size: 16px; }
+    input { background: #334155; color: #fff; text-align: center; }
+    button { background: #22c55e; color: #fff; font-weight: bold; cursor: pointer; }
+    .hidden { display: none; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0; }
+    .tile { aspect-ratio: 1; background: #334155; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; }
+    .tile.open { background: #0284c7; }
+    .tile.bomb { background: #ef4444; }
+    .status-bar { display: flex; justify-content: space-between; background: #0f172a; padding: 10px; border-radius: 8px; margin-bottom: 15px; }
+    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; padding: 20px; }
+    .modal-content { background: #1e293b; padding: 20px; border-radius: 12px; max-width: 350px; width: 100%; text-align: center; }
+    #qrcode { display: flex; justify-content: center; margin: 15px 0; background: #fff; padding: 10px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+
+  <!-- TELA DE LOGIN CPF -->
+  <div class="card" id="loginCard">
+    <h1>💣 MineBomba</h1>
+    <p>Digite seu CPF para entrar:</p>
+    <input type="text" id="cpfInput" placeholder="Apenas números" maxlength="11">
+    <button onclick="login()">ENTRAR</button>
+  </div>
+
+  <!-- TELA DO JOGO -->
+  <div class="card hidden" id="gameCard">
+    <div class="status-bar">
+      <div>Saldo: R$ <span id="balanceText">0.00</span></div>
+      <div style="color: #38bdf8; cursor: pointer;" onclick="openPixModal()">+ Recarregar</div>
+    </div>
+    <div style="margin-bottom: 10px;">
+      <label>Aposta: R$ </label>
+      <input type="number" id="betInput" value="5.00" style="width: 100px; display: inline-block;">
+    </div>
+    <button id="startBtn" onclick="startGame()">INICIAR RODADA</button>
+    <button id="collectBtn" class="hidden" style="background: #eab308;" onclick="collectHalf()">COLETAR METADE (50%)</button>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <!-- MODAL PIX -->
+  <div class="modal hidden" id="pixModal">
+    <div class="modal-content">
+      <h3>Recarregar via Pix</h3>
+      <input type="number" id="depositAmount" value="10" placeholder="R$ Valor">
+      <button onclick="generatePix()">GERAR PIX</button>
+      <div id="pixResult" class="hidden">
+        <div id="qrcode"></div>
+        <input type="text" id="pixCode" readonly style="font-size: 11px;">
+        <button style="background: #0284c7;" onclick="copyPix()">COPIAR PIX COPIA E COLA</button>
+      </div>
+      <button style="background: #64748b;" onclick="closePixModal()">FECHAR</button>
+    </div>
+  </div>
+
+  <script>
+    let currentPlayer = null, currentGame = null;
+
+    async function login() {
+      const cpf = document.getElementById('cpfInput').value;
+      if(cpf.length < 11) return alert('CPF Inválido');
+      const res = await fetch('/.netlify/functions/api', { method: 'POST', body: JSON.stringify({ action: 'login', cpf }) });
+      const data = await res.json();
+      if(data.player) {
+        currentPlayer = data.player;
+        document.getElementById('balanceText').innerText = parseFloat(data.player.balance).toFixed(2);
+        document.getElementById('loginCard').classList.add('hidden');
+        document.getElementById('gameCard').classList.remove('hidden');
+        renderGrid();
+      }
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      for(let i=0; i<12; i++) {
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        tile.innerText = '❓';
+        tile.onclick = () => revealTile(i, tile);
+        grid.appendChild(tile);
+      }
+    }
+
+    async function startGame() {
+      const betAmount = parseFloat(document.getElementById('betInput').value);
+      const res = await fetch('/.netlify/functions/api', { method: 'POST', body: JSON.stringify({ action: 'startGame', playerId: currentPlayer.id, betAmount }) });
+      const data = await res.json();
+      if(data.error) return alert(data.error);
+      currentGame = data.gameId;
+      document.getElementById('balanceText').innerText = data.newBalance.toFixed(2);
+      document.getElementById('startBtn').disabled = true;
+      document.getElementById('collectBtn').classList.add('hidden');
+      renderGrid();
+    }
+
+    async function revealTile(index, element) {
+      if(!currentGame || element.classList.contains('open')) return;
+      const res = await fetch('/.netlify/functions/api', { method: 'POST', body: JSON.stringify({ action: 'revealTile', gameId: currentGame, tileIndex: index, playerId: currentPlayer.id }) });
+      const data = await res.json();
+
+      if(data.result === 'BOOM') {
+        element.innerText = '💣'; element.classList.add('bomb');
+        alert('BOOM! Perdeu a rodada.');
+        currentGame = null; document.getElementById('startBtn').disabled = false;
+      } else {
+        element.innerText = '💎'; element.classList.add('open');
+        if(data.canCollectHalf) document.getElementById('collectBtn').classList.remove('hidden');
+        if(data.status === 'WON_100') {
+          alert('Ganhou 100% do prémio!');
+          document.getElementById('balanceText').innerText = data.newBalance.toFixed(2);
+          currentGame = null; document.getElementById('startBtn').disabled = false;
+        }
+      }
+    }
+
+    async function collectHalf() {
+      const res = await fetch('/.netlify/functions/api', { method: 'POST', body: JSON.stringify({ action: 'collectHalf', gameId: currentGame, playerId: currentPlayer.id }) });
+      const data = await res.json();
+      alert(`Coletou R$ ${data.payout.toFixed(2)}!`);
+      document.getElementById('balanceText').innerText = data.newBalance.toFixed(2);
+      currentGame = null; document.getElementById('startBtn').disabled = false;
+      document.getElementById('collectBtn').classList.add('hidden');
+    }
+
+    function openPixModal() { document.getElementById('pixModal').classList.remove('hidden'); }
+    function closePixModal() { document.getElementById('pixModal').classList.add('hidden'); }
+
+    async function generatePix() {
+      const amount = parseFloat(document.getElementById('depositAmount').value);
+      const res = await fetch('/.netlify/functions/api', { method: 'POST', body: JSON.stringify({ action: 'createPix', playerId: currentPlayer.id, amount }) });
+      const data = await res.json();
+      if(data.pixCode) {
+        document.getElementById('pixCode').value = data.pixCode;
+        document.getElementById('qrcode').innerHTML = "";
+        new QRCode(document.getElementById("qrcode"), { text: data.pixCode, width: 160, height: 160 });
+        document.getElementById('pixResult').classList.remove('hidden');
+      }
+    }
+    function copyPix() {
+      const copyText = document.getElementById('pixCode');
+      copyText.select();
+      document.execCommand('copy');
+      alert('Pix Copiado!');
+    }
+  </script>
+</body>
+  </html>
