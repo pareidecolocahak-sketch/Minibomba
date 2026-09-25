@@ -22,11 +22,12 @@
     .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; padding: 20px; }
     .modal-content { background: #1e293b; padding: 20px; border-radius: 12px; max-width: 350px; width: 100%; text-align: center; }
     #qrcode { display: flex; justify-content: center; margin: 15px 0; background: #fff; padding: 10px; border-radius: 8px; }
+    .btn-withdraw { background: #ef4444; margin-top: 5px; }
   </style>
 </head>
 <body>
 
-  <!-- TELA DE LOGIN CPF -->
+  <!-- LOGIN CPF -->
   <div class="card" id="loginCard">
     <h1>💣 MineBomba</h1>
     <p>Digite seu CPF para entrar:</p>
@@ -38,34 +39,50 @@
   <div class="card hidden" id="gameCard">
     <div class="status-bar">
       <div>Saldo: R$ <span id="balanceText">0.00</span></div>
-      <div style="color: #38bdf8; cursor: pointer;" onclick="openPixModal()">+ Recarregar</div>
+      <div>
+        <span style="color: #38bdf8; cursor: pointer; font-weight: bold;" onclick="openPixModal()">+ Depositar</span> | 
+        <span style="color: #ef4444; cursor: pointer; font-weight: bold;" onclick="openWithdrawModal()">Saque</span>
+      </div>
     </div>
     <div style="margin-bottom: 10px;">
-      <label>Aposta: R$ </label>
-      <input type="number" id="betInput" value="5.00" style="width: 100px; display: inline-block;">
+      <label>Valor da Aposta: R$ </label>
+      <input type="number" id="betInput" value="5.00" style="width: 120px; display: inline-block;">
     </div>
     <button id="startBtn" onclick="startGame()">INICIAR RODADA</button>
     <button id="collectBtn" class="hidden" style="background: #eab308;" onclick="collectHalf()">COLETAR METADE (50%)</button>
     <div class="grid" id="grid"></div>
   </div>
 
-  <!-- MODAL PIX -->
+  <!-- MODAL DEPOSITO PIX -->
   <div class="modal hidden" id="pixModal">
     <div class="modal-content">
-      <h3>Recarregar via Pix</h3>
-      <input type="number" id="depositAmount" value="10" placeholder="R$ Valor">
-      <button onclick="generatePix()">GERAR PIX</button>
-      <div id="pixResult" class="hidden">
-        <div id="qrcode"></div>
-        <input type="text" id="pixCode" readonly style="font-size: 11px;">
-        <button style="background: #0284c7;" onclick="copyPix()">COPIAR PIX COPIA E COLA</button>
-      </div>
-      <button style="background: #64748b;" onclick="closePixModal()">FECHAR</button>
+      <h3>Recarregar Saldo</h3>
+      <p style="font-size: 12px; color: #94a3b8; margin: 8px 0;">Copie o Pix, faça a transferência no seu banco e aguarde a liberação do saldo pelo suporte.</p>
+      <div id="qrcode"></div>
+      <input type="text" id="pixCode" value="00020126490014br.gov.bcb.pix0127pareidecolocarhak@gmail.com5204000053039865802BR5915DH Avinash Theo6009Sao Paulo62240520daqr19922276793764126304FC2D" readonly style="font-size: 10px; color: #94a3b8;">
+      <button style="background: #0284c7;" onclick="copyPix()">COPIAR CHAVE PIX</button>
+      <button style="background: #64748b; margin-top: 5px;" onclick="closePixModal()">FECHAR</button>
+    </div>
+  </div>
+
+  <!-- MODAL SOLICITAR SAQUE -->
+  <div class="modal hidden" id="withdrawModal">
+    <div class="modal-content">
+      <h3>Solicitar Saque</h3>
+      <input type="number" id="withdrawAmount" placeholder="R$ Valor do Saque">
+      <input type="text" id="withdrawPixKey" placeholder="Sua Chave Pix (CPF, Celular, etc)">
+      <button class="btn-withdraw" onclick="requestWithdraw()">CONFIRMAR SAQUE</button>
+      <button style="background: #64748b; margin-top: 5px;" onclick="closeWithdrawModal()">CANCELAR</button>
     </div>
   </div>
 
   <script>
     let currentPlayer = null, currentGame = null;
+
+    window.onload = function() {
+      const pixVal = document.getElementById("pixCode").value;
+      new QRCode(document.getElementById("qrcode"), { text: pixVal, width: 150, height: 150 });
+    };
 
     async function login() {
       const cpf = document.getElementById('cpfInput').value;
@@ -95,6 +112,7 @@
 
     async function startGame() {
       const betAmount = parseFloat(document.getElementById('betInput').value);
+      if(isNaN(betAmount) || betAmount <= 0) return alert('Digite um valor de aposta válido.');
       const res = await fetch('/.netlify/functions/api', { method: 'POST', body: JSON.stringify({ action: 'startGame', playerId: currentPlayer.id, betAmount }) });
       const data = await res.json();
       if(data.error) return alert(data.error);
@@ -134,26 +152,34 @@
       document.getElementById('collectBtn').classList.add('hidden');
     }
 
+    async function requestWithdraw() {
+      const amount = parseFloat(document.getElementById('withdrawAmount').value);
+      const pixKey = document.getElementById('withdrawPixKey').value;
+      if(!amount || !pixKey) return alert('Preencha o valor e a chave Pix!');
+      
+      const res = await fetch('/.netlify/functions/api', { 
+        method: 'POST', 
+        body: JSON.stringify({ action: 'requestWithdraw', playerId: currentPlayer.id, amount, pixKey }) 
+      });
+      const data = await res.json();
+      if(data.error) return alert(data.error);
+      
+      alert('Solicitação de saque enviada com sucesso!');
+      document.getElementById('balanceText').innerText = data.newBalance.toFixed(2);
+      closeWithdrawModal();
+    }
+
     function openPixModal() { document.getElementById('pixModal').classList.remove('hidden'); }
     function closePixModal() { document.getElementById('pixModal').classList.add('hidden'); }
+    function openWithdrawModal() { document.getElementById('withdrawModal').classList.remove('hidden'); }
+    function closeWithdrawModal() { document.getElementById('withdrawModal').classList.add('hidden'); }
 
-    async function generatePix() {
-      const amount = parseFloat(document.getElementById('depositAmount').value);
-      const res = await fetch('/.netlify/functions/api', { method: 'POST', body: JSON.stringify({ action: 'createPix', playerId: currentPlayer.id, amount }) });
-      const data = await res.json();
-      if(data.pixCode) {
-        document.getElementById('pixCode').value = data.pixCode;
-        document.getElementById('qrcode').innerHTML = "";
-        new QRCode(document.getElementById("qrcode"), { text: data.pixCode, width: 160, height: 160 });
-        document.getElementById('pixResult').classList.remove('hidden');
-      }
-    }
     function copyPix() {
       const copyText = document.getElementById('pixCode');
       copyText.select();
-      document.execCommand('copy');
-      alert('Pix Copiado!');
+      navigator.clipboard.writeText(copyText.value);
+      alert('Chave Pix copiada!');
     }
   </script>
 </body>
-  </html>
+</html>
